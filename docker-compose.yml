@@ -1,0 +1,88 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-caranova}
+      POSTGRES_USER: ${POSTGRES_USER:-caranova}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-caranova_local}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - caranova-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    ports:
+      - "1025:1025"
+      - "8025:8025"
+
+  object-storage:
+    image: chrislusf/seaweedfs:4.48
+    restart: unless-stopped
+    command:
+      - server
+      - -dir=/data
+      - -s3
+      - -s3.config=/etc/seaweedfs/s3.json
+      - -s3.allowedOrigins=*
+      - -ip=0.0.0.0
+    ports:
+      - "${OBJECT_STORAGE_PORT:-18333}:8333"
+    volumes:
+      - caranova-objects:/data
+      - ./storage/s3.json:/etc/seaweedfs/s3.json:ro
+
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mailpit:
+        condition: service_started
+      object-storage:
+        condition: service_started
+    environment:
+      NODE_ENV: development
+      PORT: 3000
+      SWAGGER_ENABLED: "true"
+      WEB_ORIGIN: http://localhost:3001
+      DATABASE_URL: postgresql://${POSTGRES_USER:-caranova}:${POSTGRES_PASSWORD:-caranova_local}@postgres:5432/${POSTGRES_DB:-caranova}?schema=public
+      AUTH_OTP_PEPPER: local-only-secret-for-compose-replace-before-deploy
+      PROPERTY_AUTHORIZATION_TERMS_VERSION: "1.0"
+      SMTP_HOST: mailpit
+      SMTP_PORT: 1025
+      SMTP_SECURE: "false"
+      SMTP_REQUIRE_TLS: "false"
+      SMTP_FROM: IMOVIA <no-reply@imovia.local>
+      OBJECT_STORAGE_ENDPOINT: http://object-storage:8333
+      OBJECT_STORAGE_BUCKET: caranova-media
+      OBJECT_STORAGE_REGION: us-east-1
+      OBJECT_STORAGE_ACCESS_KEY: caranova
+      OBJECT_STORAGE_SECRET_KEY: caranova_local_storage
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY:-}
+    ports:
+      - "3000:3000"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+volumes:
+  caranova-postgres:
+  caranova-objects:

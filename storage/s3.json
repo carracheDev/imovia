@@ -1,0 +1,14 @@
+{
+  "identities": [
+    {
+      "name": "caranova-local",
+      "credentials": [
+        {
+          "accessKey": "caranova",
+          "secretKey": "caranova_local_storage"
+        }
+      ],
+      "actions": ["Admin", "Read", "List", "Tagging", "Write"]
+    }
+  ]
+}

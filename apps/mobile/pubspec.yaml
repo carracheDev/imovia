@@ -1,0 +1,43 @@
+name: imovia_mobile
+description: "Application mobile IMOVIA."
+publish_to: 'none' 
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.14.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  material_ui: ^1.11.1
+  dio: ^5.11.1
+  flutter_riverpod: ^3.5.0
+  flutter_secure_storage: ^11.2.0
+  go_router: ^18.1.4
+  intl: ^0.20.3
+  url_launcher: ^6.3.3
+  share_plus: ^13.3.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+ 
+  flutter_lints: ^6.0.0
+
+
+flutter:
+
+  
+  uses-material-design: true
+
+  assets:
+    - assets/images/imovia_logo.png
+    - assets/images/nouveau_logo.png
+    - assets/images/villa_exterior.webp
+    - assets/images/living-room.jpg
+    - assets/images/featured-villa.jpg
+    - assets/images/IMOVIA_logos_decoupes/11_symbole_blanc_transparent.png
+
+  

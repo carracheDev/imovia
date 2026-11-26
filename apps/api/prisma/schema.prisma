@@ -1,0 +1,404 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SEEKER
+  OWNER
+  AGENT
+  VERIFIER
+  MODERATOR
+  ADMIN
+}
+
+enum ProfileVerificationStatus {
+  UNVERIFIED
+  PENDING
+  VERIFIED
+  REJECTED
+  SUSPENDED
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum ReportCategory {
+  FALSE_LISTING
+  MISLEADING_PRICE
+  UNAVAILABLE
+  IDENTITY_IMPERSONATION
+  UNAUTHORIZED_MEDIA
+  ABUSIVE_BEHAVIOR
+  UNDISCLOSED_FEES
+  OTHER
+}
+
+enum ReportStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+enum NotificationType {
+  LISTING_SUBMITTED
+  LISTING_APPROVED
+  LISTING_REJECTED
+  LISTING_NEEDS_CHANGES
+  LISTING_SUSPENDED
+  LISTING_RESTORED
+  REPORT_UPDATED
+}
+
+enum PropertyCategory {
+  ROOM
+  ROOM_AND_LIVING
+  STUDIO
+  APARTMENT
+  HOUSE
+  VILLA
+  LAND
+  SHOP
+  COMMERCIAL_SPACE
+  OFFICE
+  WAREHOUSE
+  OTHER
+}
+
+enum OperationType {
+  RENT
+  SALE
+}
+
+enum PropertyAvailability {
+  AVAILABLE
+  RESERVED
+  UNAVAILABLE
+  RENTED
+  SOLD
+}
+
+enum PropertyPublicationStatus {
+  DRAFT
+  SUBMITTED
+  IN_REVIEW
+  NEEDS_CHANGES
+  PUBLISHED
+  REJECTED
+  SUSPENDED
+  EXPIRED
+}
+
+enum LocationLevel {
+  DEPARTMENT
+  COMMUNE
+  ARRONDISSEMENT
+  NEIGHBORHOOD
+}
+
+enum MediaUploadStatus {
+  PENDING
+  VERIFYING
+  READY
+}
+
+model User {
+  id                  String                  @id @default(cuid())
+  email               String?                 @unique
+  emailVerifiedAt     DateTime?
+  phone               String?                 @unique
+  firstName           String?
+  lastName            String?
+  roles               UserRole[]              @default([SEEKER])
+  accountStatus       AccountStatus           @default(ACTIVE)
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+  sessions            Session[]
+  otpChallenges       OtpChallenge[]
+  ownerProfile        OwnerProfile?
+  agentProfile        AgentProfile?
+  properties          Property[]              @relation("PropertyAdvertiser")
+  statusChanges       PropertyStatusHistory[] @relation("StatusChangedBy")
+  reviewedChanges     PropertyStatusHistory[] @relation("PropertyReviewer")
+  ownedProperties     Property[]              @relation("PropertyOwner")
+  propertyAssignments PropertyAssignment[]    @relation("AssignedAgent")
+  assignmentsCreated  PropertyAssignment[]    @relation("AssignmentCreator")
+  favorites           Favorite[]
+  submittedReports    Report[]                @relation("ReportReporter")
+  reportsAboutUser    Report[]                @relation("ReportedUser")
+  assignedReports     Report[]                @relation("ReportAssignee")
+  notifications       Notification[]
+  auditEvents         AuditLog[]              @relation("AuditActor")
+  approvedMedia       PropertyMedia[]         @relation("MediaApprover")
+}
+
+model OwnerProfile {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  displayName String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model AgentProfile {
+  id                 String                    @id @default(cuid())
+  userId             String                    @unique
+  displayName        String?
+  businessName       String?
+  bio                String?
+  verificationStatus ProfileVerificationStatus @default(UNVERIFIED)
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  user               User                      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model OtpChallenge {
+  id         String    @id @default(cuid())
+  email      String?
+  phone      String?
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+  userId     String?
+  user       User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([email, createdAt])
+  @@index([email, consumedAt, expiresAt])
+  @@index([phone, createdAt])
+}
+
+model Location {
+  id         String        @id @default(cuid())
+  name       String
+  slug       String
+  level      LocationLevel
+  parentId   String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  parent     Location?     @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Restrict)
+  children   Location[]    @relation("LocationHierarchy")
+  properties Property[]
+
+  @@unique([parentId, slug])
+  @@index([parentId, level, name])
+}
+
+model Property {
+  id                         String                    @id @default(cuid())
+  slug                       String                    @unique
+  advertiserUserId           String
+  ownerUserId                String?
+  ownerDisplayName           String?                   @db.VarChar(160)
+  locationId                 String?
+  googlePlaceId              String?
+  latitude                   Float?
+  longitude                  Float?
+  googleCoordinatesFetchedAt DateTime?
+  title                      String
+  description                String
+  category                   PropertyCategory
+  operationType              OperationType
+  price                      Decimal?                  @db.Decimal(14, 2)
+  currency                   String                    @default("XOF") @db.VarChar(3)
+  availability               PropertyAvailability      @default(AVAILABLE)
+  publicationStatus          PropertyPublicationStatus @default(DRAFT)
+  details                    Json?
+  contactPhone               String?                   @db.VarChar(32)
+  contactWhatsApp            String?                   @db.VarChar(32)
+  allowPhoneContact          Boolean                   @default(false)
+  allowWhatsAppContact       Boolean                   @default(false)
+  visitInstructions          String?                   @db.VarChar(1000)
+  createdAt                  DateTime                  @default(now())
+  updatedAt                  DateTime                  @updatedAt
+  publishedAt                DateTime?
+  advertiser                 User                      @relation("PropertyAdvertiser", fields: [advertiserUserId], references: [id], onDelete: Restrict)
+  owner                      User?                     @relation("PropertyOwner", fields: [ownerUserId], references: [id], onDelete: SetNull)
+  location                   Location?                 @relation(fields: [locationId], references: [id], onDelete: Restrict)
+  statusHistory              PropertyStatusHistory[]
+  authorizations             PropertyAuthorization[]
+  media                      PropertyMedia[]
+  assignments                PropertyAssignment[]
+  favorites                  Favorite[]
+  reports                    Report[]
+  notifications              Notification[]
+  auditEvents                AuditLog[]
+
+  @@index([publicationStatus, availability, createdAt])
+  @@index([advertiserUserId, publicationStatus, updatedAt])
+  @@index([ownerUserId, publicationStatus, updatedAt])
+  @@index([locationId, publicationStatus, availability])
+  @@index([googlePlaceId, googleCoordinatesFetchedAt])
+  @@index([latitude, longitude, googleCoordinatesFetchedAt])
+  @@index([category, operationType, price])
+}
+
+model PropertyStatusHistory {
+  id          String                    @id @default(cuid())
+  propertyId  String
+  status      PropertyPublicationStatus
+  reason      String?
+  changedById String?
+  reviewerId  String?
+  createdAt   DateTime                  @default(now())
+  property    Property                  @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  changedBy   User?                     @relation("StatusChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+  reviewer    User?                     @relation("PropertyReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId, createdAt])
+}
+
+model PropertyAuthorization {
+  id               String   @id @default(cuid())
+  propertyId       String
+  advertiserUserId String
+  declaration      String
+  termsVersion     String
+  acceptedAt       DateTime @default(now())
+  property         Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+
+  @@index([propertyId, acceptedAt])
+}
+
+model PropertyMedia {
+  id           String            @id @default(cuid())
+  propertyId   String
+  mediaType    String            @db.VarChar(16)
+  storageKey   String            @unique
+  contentType  String            @db.VarChar(100)
+  uploadStatus MediaUploadStatus @default(PENDING)
+  sizeBytes    Int?
+  position     Int               @default(0)
+  isCover      Boolean           @default(false)
+  isApproved   Boolean           @default(false)
+  approvedById String?
+  approvedAt   DateTime?
+  createdAt    DateTime          @default(now())
+  property     Property          @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  approvedBy   User?             @relation("MediaApprover", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@unique([propertyId, position])
+  @@index([propertyId, mediaType, isApproved])
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  tokenHash String    @unique
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model PropertyAssignment {
+  id            String    @id @default(cuid())
+  propertyId    String
+  agentUserId   String
+  assignedById  String
+  authorization String    @db.VarChar(1000)
+  termsVersion  String    @db.VarChar(32)
+  grantedAt     DateTime  @default(now())
+  revokedAt     DateTime?
+  property      Property  @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  agent         User      @relation("AssignedAgent", fields: [agentUserId], references: [id], onDelete: Cascade)
+  assignedBy    User      @relation("AssignmentCreator", fields: [assignedById], references: [id], onDelete: Restrict)
+
+  @@unique([propertyId, agentUserId])
+  @@index([agentUserId, revokedAt, grantedAt])
+  @@index([propertyId, revokedAt])
+}
+
+model Favorite {
+  id         String   @id @default(cuid())
+  userId     String
+  propertyId String
+  createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, propertyId])
+  @@index([userId, createdAt])
+}
+
+model Report {
+  id               String         @id @default(cuid())
+  reporterUserId   String?
+  reporterEmail    String?        @db.VarChar(254)
+  reporterIpHash   String?        @db.VarChar(64)
+  propertyId       String?
+  targetUserId     String?
+  assignedToId     String?
+  category         ReportCategory
+  description      String         @db.VarChar(2000)
+  status           ReportStatus   @default(OPEN)
+  resolutionReason String?        @db.VarChar(1000)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  resolvedAt       DateTime?
+  reporter         User?          @relation("ReportReporter", fields: [reporterUserId], references: [id], onDelete: SetNull)
+  targetUser       User?          @relation("ReportedUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+  assignedTo       User?          @relation("ReportAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  property         Property?      @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  notifications    Notification[]
+  auditEvents      AuditLog[]
+
+  @@index([status, createdAt])
+  @@index([propertyId, status])
+  @@index([targetUserId, status])
+  @@index([reporterIpHash, createdAt])
+  @@index([reporterUserId, createdAt])
+  @@index([reporterEmail, createdAt])
+}
+
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  type       NotificationType
+  title      String           @db.VarChar(160)
+  message    String           @db.VarChar(500)
+  propertyId String?
+  reportId   String?
+  readAt     DateTime?
+  createdAt  DateTime         @default(now())
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  property   Property?        @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  report     Report?          @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+}
+
+model AuditLog {
+  id          String    @id @default(cuid())
+  actorUserId String?
+  action      String    @db.VarChar(80)
+  objectType  String    @db.VarChar(80)
+  objectId    String    @db.VarChar(64)
+  reason      String?   @db.VarChar(1000)
+  before      Json?
+  after       Json?
+  ipHash      String?   @db.VarChar(64)
+  createdAt   DateTime  @default(now())
+  actor       User?     @relation("AuditActor", fields: [actorUserId], references: [id], onDelete: SetNull)
+  property    Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  report      Report?   @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  propertyId  String?
+  reportId    String?
+
+  @@index([createdAt])
+  @@index([actorUserId, createdAt])
+  @@index([objectType, objectId, createdAt])
+  @@index([propertyId, createdAt])
+  @@index([reportId, createdAt])
+}
