@@ -24,9 +24,9 @@ services:
       - key: SWAGGER_ENABLED
         value: "false"
       - key: DATABASE_URL
-        fromDatabase:
-          name: imovia-db
-          property: connectionString
+        sync: false
+      - key: DIRECT_URL
+        sync: false
       - key: AUTH_OTP_PEPPER
         generateValue: true
       - key: PROPERTY_AUTHORIZATION_TERMS_VERSION
@@ -55,13 +55,3 @@ services:
         sync: false
       - key: OBJECT_STORAGE_SECRET_KEY
         sync: false
-      - key: GOOGLE_MAPS_API_KEY
-        sync: false
-
-databases:
-  - name: imovia-db
-    databaseName: imovia
-    user: imovia
-    region: frankfurt
-    plan: free
-    postgresMajorVersion: "17"
