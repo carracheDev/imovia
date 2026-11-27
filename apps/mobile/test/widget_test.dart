@@ -24,18 +24,17 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Trouvez votre\nbien idéal au Bénin'), findsOneWidget);
+    expect(find.text('Trouvez votre bien\nidéal au Bénin'), findsOneWidget);
     expect(find.text('Villa de démonstration'), findsOneWidget);
     expect(find.textContaining('FCFA'), findsOneWidget);
     final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
     expect(scaffold.backgroundColor, isNull);
-    expect(find.text('Nos biens en vedette'), findsOneWidget);
-    expect(find.text('Services'), findsOneWidget);
+    expect(find.text('Annonces récentes'), findsOneWidget);
     expect(find.text('Profil'), findsOneWidget);
     final overlay = tester.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
       find.byType(AnnotatedRegion<SystemUiOverlayStyle>),
     );
-    expect(overlay.value.statusBarIconBrightness, Brightness.light);
+    expect(overlay.value.statusBarIconBrightness, Brightness.dark);
     final layoutException = tester.takeException();
     expect(layoutException, isNull, reason: '$layoutException');
     addTearDown(tester.view.resetPhysicalSize);
@@ -75,10 +74,7 @@ void main() {
       await tester.tap(find.text('Terrains'));
       expect(category, 'LAND');
       expect(operation, isNull);
-      expect(
-        find.text('Aucune annonce disponible pour le moment.'),
-        findsOneWidget,
-      );
+      expect(find.text('Aucune annonce pour le moment'), findsOneWidget);
       expect(tester.takeException(), isNull);
       addTearDown(tester.view.resetPhysicalSize);
     },

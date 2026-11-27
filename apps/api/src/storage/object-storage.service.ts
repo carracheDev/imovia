@@ -25,12 +25,15 @@ export class ObjectStorageService implements OnModuleInit, OnModuleDestroy {
     this.isProduction = process.env.NODE_ENV === 'production';
     const endpoint =
       process.env.OBJECT_STORAGE_ENDPOINT ??
+      process.env.AWS_ENDPOINT_URL_S3 ??
       (this.isProduction ? undefined : 'http://localhost:18333');
     const accessKeyId =
       process.env.OBJECT_STORAGE_ACCESS_KEY ??
+      process.env.AWS_ACCESS_KEY_ID ??
       (this.isProduction ? undefined : 'caranova');
     const secretAccessKey =
       process.env.OBJECT_STORAGE_SECRET_KEY ??
+      process.env.AWS_SECRET_ACCESS_KEY ??
       (this.isProduction ? undefined : 'caranova_local_storage');
     this.bucket = process.env.OBJECT_STORAGE_BUCKET ?? 'caranova-media';
 
@@ -42,7 +45,10 @@ export class ObjectStorageService implements OnModuleInit, OnModuleDestroy {
 
     this.client = new S3Client({
       endpoint,
-      region: process.env.OBJECT_STORAGE_REGION ?? 'us-east-1',
+      region:
+        process.env.OBJECT_STORAGE_REGION ??
+        process.env.AWS_REGION ??
+        'us-east-1',
       forcePathStyle: true,
       credentials: { accessKeyId, secretAccessKey },
     });

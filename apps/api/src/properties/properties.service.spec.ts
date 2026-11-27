@@ -38,6 +38,9 @@ describe('PropertiesService media uploads', () => {
     propertyAssignment: {
       findFirst: vi.fn().mockResolvedValue(null),
     },
+    location: {
+      findMany: vi.fn(),
+    },
   };
   const storage = {
     createImageUpload: vi.fn(),
@@ -66,6 +69,66 @@ describe('PropertiesService media uploads', () => {
       ],
     }).compile();
     service = module.get(PropertiesService);
+  });
+
+  it('searches locations and returns their administrative path', async () => {
+    prisma.location.findMany.mockResolvedValue([
+      {
+        id: 'neighborhood-id',
+        name: 'Cotonou-centre',
+        slug: 'cotonou-centre',
+        level: 'NEIGHBORHOOD',
+        parentId: 'arrondissement-id',
+        parent: {
+          name: '1er arrondissement',
+          level: 'ARRONDISSEMENT',
+          parent: {
+            name: 'Cotonou',
+            level: 'COMMUNE',
+            parent: { name: 'Littoral', level: 'DEPARTMENT', parent: null },
+          },
+        },
+      },
+      {
+        id: 'commune-id',
+        name: 'Cotonou',
+        slug: 'cotonou',
+        level: 'COMMUNE',
+        parentId: 'department-id',
+        parent: {
+          name: 'Littoral',
+          level: 'DEPARTMENT',
+          parent: null,
+        },
+      },
+    ]);
+
+    const results = await service.searchLocations(' Cotonou ');
+
+    expect(prisma.location.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { name: { contains: 'Cotonou', mode: 'insensitive' } },
+        take: 100,
+      }),
+    );
+    expect(results[0]).toMatchObject({
+      id: 'commune-id',
+      name: 'Cotonou',
+      path: 'Littoral · Cotonou',
+    });
+    expect(results[1]).toMatchObject({
+      id: 'neighborhood-id',
+      path: 'Littoral · Cotonou · 1er arrondissement · Cotonou-centre',
+    });
+  });
+
+  it('accepts one-character location prefixes and rejects an empty query', async () => {
+    prisma.location.findMany.mockResolvedValue([]);
+    await expect(service.searchLocations(' Z ')).resolves.toEqual([]);
+    await expect(service.searchLocations(' ')).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(prisma.location.findMany).toHaveBeenCalledTimes(1);
   });
 
   it('combines public eligibility with title and location search', async () => {

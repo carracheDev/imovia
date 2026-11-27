@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/providers.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/imovia_colors.dart';
+import '../../../core/ui/account_bottom_nav.dart';
 import '../../home/data/home_repository.dart';
 import '../../properties/presentation/property_listing_card.dart';
 import '../domain/search_criteria.dart';
@@ -160,6 +161,7 @@ class _ResultsPageState extends ConsumerState<ResultsPage> {
         Expanded(child: _buildResults(context)),
       ],
     ),
+    bottomNavigationBar: const AccountBottomNav(selected: 'Recherche'),
   );
 
   Widget _buildResults(BuildContext context) {

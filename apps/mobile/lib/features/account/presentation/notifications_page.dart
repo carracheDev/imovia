@@ -6,8 +6,8 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/providers.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/imovia_colors.dart';
+import '../../../core/ui/account_bottom_nav.dart';
 import '../data/account_repository.dart';
-import 'profile_page.dart';
 
 class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});

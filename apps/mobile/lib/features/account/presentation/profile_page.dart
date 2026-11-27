@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/providers.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/imovia_colors.dart';
+import '../../../core/ui/account_bottom_nav.dart';
 import '../data/account_repository.dart';
 
 class ProfilePage extends ConsumerStatefulWidget {
@@ -51,6 +52,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
       final user = await ref
           .read(accountRepositoryProvider)
           .updateProfile(firstName: _firstName.text, lastName: _lastName.text);
+      ref.invalidate(currentAccountProvider);
       if (mounted) {
         setState(() {
           _editing = false;
@@ -318,96 +320,6 @@ class _ProfileError extends StatelessWidget {
         ),
         TextButton(onPressed: onRetry, child: const Text('Réessayer')),
       ],
-    ),
-  );
-}
-
-class AccountBottomNav extends StatelessWidget {
-  const AccountBottomNav({super.key, required this.selected});
-  final String selected;
-  @override
-  Widget build(BuildContext context) => SafeArea(
-    top: false,
-    child: Container(
-      margin: const EdgeInsets.fromLTRB(14, 4, 14, 10),
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(
-        color: ImoviaColors.white,
-        borderRadius: BorderRadius.circular(22),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          Expanded(
-            child: _NavItem(
-              icon: Icons.home_outlined,
-              label: 'Accueil',
-              selected: selected == 'Accueil',
-              onTap: () => context.go('/'),
-            ),
-          ),
-          Expanded(
-            child: _NavItem(
-              icon: Icons.search_rounded,
-              label: 'Recherche',
-              selected: selected == 'Recherche',
-              onTap: () => context.push<void>('/search'),
-            ),
-          ),
-          Expanded(
-            child: _NavItem(
-              icon: Icons.favorite_border_rounded,
-              label: 'Favoris',
-              selected: selected == 'Favoris',
-              onTap: () => context.push<void>('/favorites'),
-            ),
-          ),
-          Expanded(
-            child: _NavItem(
-              icon: Icons.person_outline_rounded,
-              label: 'Profil',
-              selected: selected == 'Profil',
-              onTap: () => context.go('/profile'),
-            ),
-          ),
-        ],
-      ),
-    ),
-  );
-}
-
-class _NavItem extends StatelessWidget {
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) => InkWell(
-    onTap: onTap,
-    borderRadius: BorderRadius.circular(14),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: selected ? ImoviaColors.ink : ImoviaColors.gray),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: TextStyle(
-              color: selected ? ImoviaColors.ink : ImoviaColors.gray,
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
-            ),
-          ),
-        ],
-      ),
     ),
   );
 }

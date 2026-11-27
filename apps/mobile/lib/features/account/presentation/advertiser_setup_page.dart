@@ -85,6 +85,7 @@ class _AdvertiserSetupPageState extends ConsumerState<AdvertiserSetupPage> {
             displayName: _displayName.text,
             businessName: role == 'AGENT' ? _businessName.text : null,
           );
+      ref.invalidate(currentAccountProvider);
       if (mounted) setState(() => _completedRole = role);
     } on ApiException {
       if (mounted) {
@@ -350,6 +351,11 @@ class _SetupComplete extends StatelessWidget {
             ),
             const SizedBox(height: 22),
             FilledButton(
+              onPressed: () => context.go('/advertiser/properties/new'),
+              child: const Text('Créer une annonce'),
+            ),
+            const SizedBox(height: 10),
+            TextButton(
               onPressed: () => context.go('/'),
               child: const Text('Revenir à l’accueil'),
             ),

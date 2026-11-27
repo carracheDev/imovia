@@ -51,7 +51,7 @@ Chaque feature possède ses écrans, ViewModels, modèles et repositories. Les w
 - Dio est créé une fois par application, avec délais bornés et erreurs converties en erreurs métier sûres. Pas de journalisation d’en-têtes ou de jetons en production.
 - Le jeton bearer est conservé dans Keychain/Keystore via `flutter_secure_storage`. OTP et secrets ne vont ni dans `SharedPreferences`, ni dans les logs.
 - Les appels vers le stockage objet utilisent un client distinct de l’API pour qu’un jeton bearer ne soit jamais ajouté à une URL présignée.
-- `API_BASE_URL` est une variable de compilation. Défaut Android émulateur : `http://10.0.2.2:3000/api/`; iOS simulateur : `http://127.0.0.1:3000/api/`. Les environnements déployés utilisent HTTPS.
+- `API_BASE_URL` est une variable de compilation. Par défaut, l’application utilise `https://imovia-1.onrender.com/api/`. Pour le développement local, l’émulateur Android utilise `http://10.0.2.2:3000/api/` et le simulateur iOS `http://127.0.0.1:3000/api/`. Les environnements déployés utilisent HTTPS.
 - Le panier réseau ne télécharge pas d’images de fond. Les images de biens apparaissent uniquement dans les cartes et galeries prévues pour elles.
 
 ## Dépendances retenues

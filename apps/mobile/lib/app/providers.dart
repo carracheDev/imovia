@@ -10,6 +10,7 @@ import '../features/foundation/domain/api_health.dart';
 import '../features/account/data/account_repository.dart';
 import '../features/home/data/home_repository.dart';
 import '../features/properties/data/property_detail_repository.dart';
+import '../features/properties/data/property_draft_repository.dart';
 import '../features/properties/data/favorites_repository.dart';
 import '../features/search/data/search_repository.dart';
 
@@ -71,6 +72,18 @@ final accountRepositoryProvider = Provider<AccountRepository>((ref) {
   return RemoteAccountRepository(ref.watch(apiClientProvider));
 });
 
+final currentAccountProvider = FutureProvider<AccountUser?>((ref) async {
+  final tokenStore = ref.watch(sessionTokenStoreProvider);
+  final accountRepository = ref.watch(accountRepositoryProvider);
+  final token = await tokenStore.readToken();
+  if (token == null || token.isEmpty) return null;
+  try {
+    return await accountRepository.currentUser();
+  } on ApiException {
+    return null;
+  }
+});
+
 final homeRepositoryProvider = Provider<HomeRepository>((ref) {
   return RemoteHomeRepository(ref.watch(apiClientProvider));
 });
@@ -83,6 +96,12 @@ final propertyDetailRepositoryProvider = Provider<PropertyDetailRepository>((
   ref,
 ) {
   return RemotePropertyDetailRepository(ref.watch(apiClientProvider));
+});
+
+final propertyDraftRepositoryProvider = Provider<PropertyDraftRepository>((
+  ref,
+) {
+  return RemotePropertyDraftRepository(ref.watch(apiClientProvider));
 });
 
 final favoritesRepositoryProvider = Provider<FavoritesRepository>((ref) {

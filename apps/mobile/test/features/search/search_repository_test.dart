@@ -43,6 +43,42 @@ void main() {
     dio.close(force: true);
   });
 
+  test('searches localities and reads their administrative path', () async {
+    final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/'));
+    late RequestOptions requested;
+    dio.interceptors.add(
+      InterceptorsWrapper(
+        onRequest: (options, handler) {
+          requested = options;
+          handler.resolve(
+            Response<List<Map<String, dynamic>>>(
+              requestOptions: options,
+              statusCode: 200,
+              data: [
+                {
+                  'id': 'neighborhood-fidjrosse',
+                  'name': 'Fidjrossè',
+                  'level': 'NEIGHBORHOOD',
+                  'parentId': 'arrondissement-12',
+                  'path': 'Littoral · Cotonou · 12e arrondissement · Fidjrossè',
+                },
+              ],
+            ),
+          );
+        },
+      ),
+    );
+    final repository = RemoteSearchRepository(ApiClient(dio));
+
+    final locations = await repository.searchLocations('fidj');
+
+    expect(requested.uri.path, '/api/locations/search');
+    expect(requested.queryParameters, {'q': 'fidj'});
+    expect(locations.single.name, 'Fidjrossè');
+    expect(locations.single.path, contains('Cotonou'));
+    dio.close(force: true);
+  });
+
   test('counts search matches with supported criteria from the API', () async {
     final dio = Dio(BaseOptions(baseUrl: 'https://api.example.test/api/'));
     late RequestOptions requested;

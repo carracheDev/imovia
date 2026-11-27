@@ -8,7 +8,7 @@ Le dépôt reste un monorepo. Le Blueprint à la racine configure uniquement le 
 2. Dans Render, choisir **New → Blueprint**, connecter `carracheDev/imovia` et sélectionner `main`.
 3. Vérifier que le Blueprint ne prévoit que le service `imovia-api`.
 4. Dans Neon, copier l’URL poolée de la branche à utiliser dans `DATABASE_URL` et l’URL directe dans `DIRECT_URL`. Garder le paramètre SSL de Neon dans les deux URLs.
-5. Ajouter les variables SMTP et `OBJECT_STORAGE_*` dans le formulaire sécurisé Render. Ne pas déposer les secrets dans GitHub ni les envoyer dans un chat.
+5. Ajouter les variables SMTP et les identifiants Neon Object Storage dans le formulaire sécurisé Render : `AWS_ENDPOINT_URL_S3`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_REGION` (`us-east-2`) et `OBJECT_STORAGE_BUCKET` (`uploads`). Ne pas déposer les secrets dans GitHub ni les envoyer dans un chat.
 6. Déployer, suivre les journaux, puis vérifier `https://<service>.onrender.com/api/health`.
 7. Configurer l’application Flutter avec l’URL de l’API pour les essais :
 
@@ -16,7 +16,7 @@ Le dépôt reste un monorepo. Le Blueprint à la racine configure uniquement le 
    flutter run --dart-define=API_BASE_URL=https://<service>.onrender.com/api
    ```
 
-L’API utilise `DATABASE_URL` pour ses requêtes. Prisma lit `DIRECT_URL` pour appliquer les migrations au démarrage. En local, si `DIRECT_URL` est absent, Prisma retombe sur `DATABASE_URL`.
+L’API utilise `DATABASE_URL` pour ses requêtes. Prisma lit `DIRECT_URL` pour appliquer les migrations au démarrage. En local, si `DIRECT_URL` est absent, Prisma retombe sur `DATABASE_URL`. Le service de stockage accepte les variables Neon `AWS_*` ainsi que les noms génériques `OBJECT_STORAGE_*` utilisés en local.
 
 Le service web gratuit Render s’endort après 15 minutes sans requête et son réveil peut prendre environ une minute. Le service gratuit ne peut pas envoyer d’e-mails sur les ports SMTP 25, 465 ou 587 ; ce Blueprint utilise TLS sur le port 2525, que le relais SMTP doit accepter. Sinon, prendre un service Render payant ou adapter la livraison OTP à une API e-mail HTTPS.
 

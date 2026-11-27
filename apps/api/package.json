@@ -22,6 +22,7 @@
     "test:e2e": "vitest run --config ./vitest.config.e2e.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
+    "db:seed:locations": "npm run db:generate && npm run build && node prisma/seed-locations.mjs",
     "db:studio": "prisma studio"
   },
   "dependencies": {

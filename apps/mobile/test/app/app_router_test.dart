@@ -47,6 +47,8 @@ void main() {
       find.text('2 annonces correspondent à vos critères.'),
       findsOneWidget,
     );
+    await tester.drag(find.byType(ListView).first, const Offset(0, -500));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Voir 2 résultats'));
     await tester.pumpAndSettle();
     expect(find.text('Résultats'), findsOneWidget);
@@ -138,4 +140,7 @@ class _FakeSearchRepository implements SearchRepository {
   @override
   Future<List<SearchLocation>> loadLocations({String? parentId}) async =>
       const [];
+
+  @override
+  Future<List<SearchLocation>> searchLocations(String query) async => const [];
 }

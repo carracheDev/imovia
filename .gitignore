@@ -10,3 +10,5 @@
 **/src/generated/prisma/
 *.log
 .DS_Store
+.neon
+node_modules/

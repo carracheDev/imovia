@@ -66,6 +66,7 @@ class _SignInPageState extends ConsumerState<SignInPage> {
           .read(accountRepositoryProvider)
           .verifyCode(_email.text, _code.text);
       await ref.read(sessionTokenStoreProvider).writeToken(token);
+      ref.invalidate(currentAccountProvider);
       if (mounted) context.go(widget.returnTo);
     } on ApiException {
       if (mounted) {
@@ -83,7 +84,13 @@ class _SignInPageState extends ConsumerState<SignInPage> {
     backgroundColor: ImoviaColors.page,
     appBar: AppBar(
       leading: IconButton(
-        onPressed: () => context.pop(),
+        onPressed: () {
+          if (context.canPop()) {
+            context.pop();
+          } else {
+            context.go('/');
+          }
+        },
         icon: const Icon(Icons.arrow_back_rounded),
       ),
     ),

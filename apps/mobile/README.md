@@ -8,7 +8,12 @@ MVVM par feature : écran → ViewModel → interface de repository → reposito
 
 Voir [architecture mobile](../../docs/mobile-architecture.md) et [composants MVP](../../docs/mobile-components-mvp.md).
 
-## API de développement
+## API
+
+Par défaut, l’application utilise l’API Render de production :
+`https://imovia-1.onrender.com/api/`.
+
+Pour le développement local, remplace l’URL au lancement avec `API_BASE_URL`.
 
 Android Emulator :
 

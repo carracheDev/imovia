@@ -213,6 +213,83 @@ export class PropertiesService {
     });
   }
 
+  async searchLocations(query: string) {
+    const term = query.trim();
+    if (term.length < 1 || term.length > 80) {
+      throw new BadRequestException('q must contain between 1 and 80 characters');
+    }
+
+    const locations = await this.prisma.location.findMany({
+      where: { name: { contains: term, mode: 'insensitive' } },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        level: true,
+        parentId: true,
+        parent: {
+          select: {
+            name: true,
+            level: true,
+            parent: {
+              select: {
+                name: true,
+                level: true,
+                parent: { select: { name: true, level: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: { name: 'asc' },
+      take: 100,
+    });
+
+    const levelPriority: Record<string, number> = {
+      COMMUNE: 0,
+      NEIGHBORHOOD: 1,
+      ARRONDISSEMENT: 2,
+      DEPARTMENT: 3,
+    };
+    const rank = (location: (typeof locations)[number]) => {
+      const normalizedName = location.name.toLocaleLowerCase('fr');
+      const normalizedTerm = term.toLocaleLowerCase('fr');
+      const matchRank = normalizedName === normalizedTerm
+        ? 0
+        : normalizedName.startsWith(normalizedTerm)
+          ? 1
+          : 2;
+      return [matchRank, levelPriority[location.level] ?? 4, normalizedName];
+    };
+
+    return locations
+      .sort((left, right) => {
+        const leftRank = rank(left);
+        const rightRank = rank(right);
+        for (let index = 0; index < leftRank.length; index += 1) {
+          if (leftRank[index] < rightRank[index]) return -1;
+          if (leftRank[index] > rightRank[index]) return 1;
+        }
+        return 0;
+      })
+      .slice(0, 8)
+      .map((location) => {
+        const ancestors = [
+          location.parent?.parent?.parent?.name,
+          location.parent?.parent?.name,
+          location.parent?.name,
+        ].filter((name): name is string => Boolean(name));
+        return {
+          id: location.id,
+          name: location.name,
+          slug: location.slug,
+          level: location.level,
+          parentId: location.parentId,
+          path: [...ancestors, location.name].join(' · '),
+        };
+      });
+  }
+
   async createDraft(user: AuthenticatedUser, input: CreatePropertyDto) {
     this.assertAdvertiserRole(user);
     const ownerUserId = user.roles.includes(UserRole.OWNER)

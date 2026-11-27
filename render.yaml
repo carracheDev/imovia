@@ -45,13 +45,13 @@ services:
         sync: false
       - key: SMTP_PASSWORD
         sync: false
-      - key: OBJECT_STORAGE_ENDPOINT
+      - key: AWS_ENDPOINT_URL_S3
         sync: false
       - key: OBJECT_STORAGE_BUCKET
+        value: uploads
+      - key: AWS_REGION
+        value: us-east-2
+      - key: AWS_ACCESS_KEY_ID
         sync: false
-      - key: OBJECT_STORAGE_REGION
-        sync: false
-      - key: OBJECT_STORAGE_ACCESS_KEY
-        sync: false
-      - key: OBJECT_STORAGE_SECRET_KEY
+      - key: AWS_SECRET_ACCESS_KEY
         sync: false

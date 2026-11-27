@@ -22,23 +22,27 @@ class SearchLocation {
     required this.name,
     required this.level,
     this.parentId,
+    this.path,
   });
 
   final String id;
   final String name;
   final String level;
   final String? parentId;
+  final String? path;
 
   factory SearchLocation.fromJson(Map<String, dynamic> json) => SearchLocation(
     id: json['id'] as String? ?? '',
     name: json['name'] as String? ?? '',
     level: json['level'] as String? ?? '',
     parentId: json['parentId'] as String?,
+    path: json['path'] as String?,
   );
 }
 
 abstract interface class SearchRepository {
   Future<List<SearchLocation>> loadLocations({String? parentId});
+  Future<List<SearchLocation>> searchLocations(String query);
   Future<int> countResults(SearchCriteria criteria);
   Future<SearchResultsPage> loadResults(
     SearchCriteria criteria, {
@@ -57,6 +61,15 @@ class RemoteSearchRepository implements SearchRepository {
     final data = await _apiClient.getJsonList(
       'locations',
       queryParameters: parentId == null ? null : {'parentId': parentId},
+    );
+    return data.map(SearchLocation.fromJson).toList(growable: false);
+  }
+
+  @override
+  Future<List<SearchLocation>> searchLocations(String query) async {
+    final data = await _apiClient.getJsonList(
+      'locations/search',
+      queryParameters: {'q': query},
     );
     return data.map(SearchLocation.fromJson).toList(growable: false);
   }

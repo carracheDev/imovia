@@ -7,8 +7,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../../app/providers.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/imovia_colors.dart';
+import '../../../core/ui/account_bottom_nav.dart';
 import '../data/property_detail_repository.dart';
-import '../../account/presentation/profile_page.dart';
 
 class ContactPage extends ConsumerStatefulWidget {
   const ContactPage({super.key, required this.slug});

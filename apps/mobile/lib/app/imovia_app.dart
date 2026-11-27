@@ -6,6 +6,7 @@ import '../features/home/presentation/home_page.dart';
 import '../features/properties/presentation/property_detail_page.dart';
 import '../features/properties/presentation/favorites_page.dart';
 import '../features/properties/presentation/contact_page.dart';
+import '../features/properties/presentation/create_property_page.dart';
 import '../features/account/presentation/sign_in_page.dart';
 import '../features/account/presentation/profile_page.dart';
 import '../features/account/presentation/notifications_page.dart';
@@ -91,6 +92,10 @@ class ImoviaApp extends StatelessWidget {
       GoRoute(
         path: '/advertiser/setup',
         builder: (context, state) => const AdvertiserSetupPage(),
+      ),
+      GoRoute(
+        path: '/advertiser/properties/new',
+        builder: (context, state) => const CreatePropertyPage(),
       ),
     ],
   );

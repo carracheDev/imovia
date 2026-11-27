@@ -72,6 +72,37 @@ void main() {
     expect(tester.takeException(), isNull);
     addTearDown(tester.view.resetPhysicalSize);
   });
+
+  testWidgets('suggests and selects a locality after the first letter', (
+    tester,
+  ) async {
+    final repository = _FakeSearchRepository(resultCount: 3);
+    tester.view.physicalSize = const Size(360, 1000);
+    tester.view.devicePixelRatio = 1;
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [searchRepositoryProvider.overrideWithValue(repository)],
+        child: const MaterialApp(home: SearchPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).first, 'Z');
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(repository.searchedQueries, contains('Z'));
+    expect(find.text('Zou'), findsWidgets);
+
+    await tester.tap(find.text('Zou').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Afficher les résultats'));
+    await tester.pumpAndSettle();
+
+    expect(repository.lastCriteria?.locationId, 'department-zou');
+    expect(repository.lastCriteria?.query, isNull);
+    addTearDown(tester.view.resetPhysicalSize);
+  });
 }
 
 class _FakeSearchRepository implements SearchRepository {
@@ -80,6 +111,7 @@ class _FakeSearchRepository implements SearchRepository {
   final int resultCount;
   SearchCriteria? lastCriteria;
   int countCalls = 0;
+  final searchedQueries = <String>[];
 
   @override
   Future<int> countResults(SearchCriteria criteria) async {
@@ -91,6 +123,21 @@ class _FakeSearchRepository implements SearchRepository {
   @override
   Future<List<SearchLocation>> loadLocations({String? parentId}) async =>
       const [];
+
+  @override
+  Future<List<SearchLocation>> searchLocations(String query) async {
+    searchedQueries.add(query);
+    return query.toLowerCase().startsWith('z')
+        ? const [
+            SearchLocation(
+              id: 'department-zou',
+              name: 'Zou',
+              level: 'DEPARTMENT',
+              path: 'Zou',
+            ),
+          ]
+        : const [];
+  }
 
   @override
   Future<SearchResultsPage> loadResults(

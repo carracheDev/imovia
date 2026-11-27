@@ -112,10 +112,15 @@ class _HomePageState extends ConsumerState<HomePage> {
   @override
   Widget build(BuildContext context) {
     final listings = ref.watch(homeListingsProvider);
+    final firstName = ref
+        .watch(currentAccountProvider)
+        .asData
+        ?.value
+        ?.firstName;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light.copyWith(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
+      value: SystemUiOverlayStyle.dark.copyWith(
+        statusBarColor: ImoviaColors.page,
+        statusBarIconBrightness: Brightness.dark,
         statusBarBrightness: Brightness.light,
         systemNavigationBarColor: ImoviaColors.ink,
         systemNavigationBarIconBrightness: Brightness.light,
@@ -123,19 +128,27 @@ class _HomePageState extends ConsumerState<HomePage> {
       ),
       child: Scaffold(
         body: SafeArea(
-          top: false,
+          top: true,
+          bottom: false,
           child: RefreshIndicator(
             color: ImoviaColors.ink,
-            onRefresh: () => ref.refresh(homeListingsProvider.future),
+            onRefresh: () async {
+              ref.invalidate(currentAccountProvider);
+              await ref.refresh(homeListingsProvider.future);
+            },
             child: CustomScrollView(
               physics: const AlwaysScrollableScrollPhysics(),
               slivers: [
                 SliverToBoxAdapter(
-                  child: _HeroSearch(
+                  child: _HomeHeader(
                     controller: _searchController,
+                    firstName: firstName,
                     onSubmit: _submitSearch,
                     onFilter: _openFilters,
                     onNotifications: _openNotifications,
+                    onProfile:
+                        widget.onOpenProfile ??
+                        () => context.push<void>('/profile'),
                     onPublish:
                         widget.onPublishProperty ??
                         () => context.push<void>('/advertiser/setup'),
@@ -170,28 +183,39 @@ class _HomePageState extends ConsumerState<HomePage> {
                               onTap: () => _category('LAND', null),
                             ),
                           ),
-                          const SizedBox(width: 9),
-                          Expanded(
-                            child: _CategoryTile(
-                              icon: Icons.spa_outlined,
-                              label: 'Services',
-                              onTap: () => _showComingSoon('Les services'),
-                            ),
-                          ),
                         ],
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 24),
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
                           Expanded(
-                            child: Text(
-                              'Nos biens en vedette',
-                              style: Theme.of(context).textTheme.titleLarge,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Annonces récentes',
+                                  style: Theme.of(context).textTheme.titleLarge,
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  'Découvrez les dernières opportunités immobilières',
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(color: ImoviaColors.gray),
+                                ),
+                              ],
                             ),
                           ),
                           TextButton(
                             onPressed: () => _category(null, null),
-                            child: const Text('Voir tout'),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text('Voir tout'),
+                                SizedBox(width: 5),
+                                Icon(Icons.arrow_forward_rounded, size: 18),
+                              ],
+                            ),
                           ),
                         ],
                       ),
@@ -234,6 +258,10 @@ class _HomePageState extends ConsumerState<HomePage> {
         ),
         bottomNavigationBar: _BottomNavigation(
           onTap: (label) {
+            if (label == 'Recherche') {
+              _openFilters();
+              return;
+            }
             if (label == 'Favoris' && widget.onFavorites != null) {
               widget.onFavorites!();
               return;
@@ -259,195 +287,248 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 }
 
-class _HeroSearch extends StatelessWidget {
-  const _HeroSearch({
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({
     required this.controller,
+    required this.firstName,
     required this.onSubmit,
     required this.onFilter,
     required this.onNotifications,
+    required this.onProfile,
     required this.onPublish,
   });
 
   final TextEditingController controller;
+  final String? firstName;
   final VoidCallback onSubmit;
   final VoidCallback onFilter;
   final VoidCallback onNotifications;
+  final VoidCallback onProfile;
   final VoidCallback onPublish;
 
+  String get _initials {
+    final parts = (firstName ?? '').trim().split(RegExp(r'\s+'));
+    if (parts.isEmpty || parts.first.isEmpty) return '';
+    return parts.take(2).map((part) => part[0]).join().toUpperCase();
+  }
+
   @override
-  Widget build(BuildContext context) {
-    final statusBar = MediaQuery.paddingOf(context).top;
-    final height = (MediaQuery.sizeOf(context).height * .56).clamp(
-      420.0,
-      470.0,
-    );
-    return SizedBox(
-      height: height,
-      width: double.infinity,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.asset('assets/images/nouveau_logo.png', fit: BoxFit.cover),
-          const DecoratedBox(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0x61000000),
-                  Color(0x10000000),
-                  Color(0xAA000000),
-                ],
-                stops: [0, .42, 1],
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(18, 12, 18, 0),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            InkWell(
+              onTap: onProfile,
+              borderRadius: BorderRadius.circular(28),
+              child: CircleAvatar(
+                radius: 23,
+                backgroundColor: ImoviaColors.brandAccentSoft,
+                child: _initials.isEmpty
+                    ? const Icon(
+                        Icons.person_outline_rounded,
+                        color: ImoviaColors.brandAccent,
+                      )
+                    : Text(
+                        _initials,
+                        style: const TextStyle(
+                          color: ImoviaColors.brandAccent,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
               ),
             ),
-          ),
-          Positioned(
-            top: statusBar + 18,
-            left: 24,
-            right: 24,
-            child: Row(
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    firstName == null || firstName!.trim().isEmpty
+                        ? 'Bonjour 👋'
+                        : 'Bonjour, ${firstName!.trim()}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium
+                        ?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  Text(
+                    'Bienvenue sur IMOVIA',
+                    style: Theme.of(context).textTheme.bodySmall
+                        ?.copyWith(color: ImoviaColors.gray),
+                  ),
+                ],
+              ),
+            ),
+            IconButton(
+              onPressed: onPublish,
+              tooltip: 'Publier un bien',
+              style: IconButton.styleFrom(
+                backgroundColor: ImoviaColors.white,
+                foregroundColor: ImoviaColors.brandAccent,
+                fixedSize: const Size(44, 44),
+              ),
+              icon: const Icon(Icons.add_home_work_outlined),
+            ),
+            const SizedBox(width: 6),
+            IconButton(
+              onPressed: onNotifications,
+              tooltip: 'Notifications',
+              style: IconButton.styleFrom(
+                backgroundColor: ImoviaColors.white,
+                foregroundColor: ImoviaColors.ink,
+                fixedSize: const Size(44, 44),
+              ),
+              icon: const Icon(Icons.notifications_none_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: 22),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(25),
+          child: Container(
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFEAF7EC), Color(0xFFE3F2E7)],
+              ),
+            ),
+            child: Stack(
+              clipBehavior: Clip.hardEdge,
               children: [
-                Image.asset(
-                  'assets/images/IMOVIA_logos_decoupes/11_symbole_blanc_transparent.png',
-                  width: 32,
-                  height: 28,
-                ),
-                const SizedBox(width: 8),
-                const Text(
-                  'IMOVIA',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 19,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -.4,
+                Positioned(
+                  top: -56,
+                  right: -50,
+                  child: Container(
+                    width: 180,
+                    height: 180,
+                    decoration: const BoxDecoration(
+                      color: Color(0x36FFFFFF),
+                      shape: BoxShape.circle,
+                    ),
                   ),
                 ),
-                const Spacer(),
-                IconButton(
-                  onPressed: onPublish,
-                  tooltip: 'Publier un bien',
-                  color: Colors.white,
-                  icon: const Icon(Icons.add_home_work_outlined, size: 24),
-                ),
-                IconButton(
-                  onPressed: onNotifications,
-                  tooltip: 'Notifications',
-                  color: Colors.white,
-                  icon: const Icon(Icons.notifications_none_rounded, size: 27),
-                ),
-              ],
-            ),
-          ),
-          Positioned(
-            left: 24,
-            right: 24,
-            bottom: 98,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text.rich(
-                  TextSpan(
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: Colors.white,
-                      fontSize: 30,
-                      height: 1.12,
-                      letterSpacing: -.8,
+                Positioned(
+                  top: 34,
+                  right: -58,
+                  child: Container(
+                    width: 142,
+                    height: 142,
+                    decoration: const BoxDecoration(
+                      color: Color(0x2678C98C),
+                      shape: BoxShape.circle,
                     ),
-                    children: const [
-                      TextSpan(text: 'Trouvez votre\nbien idéal '),
-                      TextSpan(
-                        text: 'au Bénin',
-                        style: TextStyle(color: ImoviaColors.sun),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(18, 20, 18, 18),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text.rich(
+                        TextSpan(
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                fontSize: 27,
+                                height: 1.12,
+                                letterSpacing: -.7,
+                              ),
+                          children: const [
+                            TextSpan(text: 'Trouvez votre bien\nidéal au '),
+                            TextSpan(
+                              text: 'Bénin',
+                              style: TextStyle(color: ImoviaColors.brandAccent),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Container(
+                        width: 34,
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: ImoviaColors.sun,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Maisons, appartements et terrains près de vous.',
+                        style: Theme.of(context).textTheme.bodyMedium
+                            ?.copyWith(color: ImoviaColors.charcoal),
+                      ),
+                      const SizedBox(height: 16),
+                      Container(
+                        height: 58,
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        decoration: BoxDecoration(
+                          color: ImoviaColors.white,
+                          borderRadius: BorderRadius.circular(19),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Color(0x120B0B0B),
+                              blurRadius: 14,
+                              offset: Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(width: 10),
+                            const Icon(
+                              Icons.search_rounded,
+                              color: ImoviaColors.gray,
+                              size: 23,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: TextField(
+                                controller: controller,
+                                textInputAction: TextInputAction.search,
+                                onSubmitted: (_) => onSubmit(),
+                                decoration: const InputDecoration(
+                                  hintText: 'Bien, ville ou quartier…',
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  filled: false,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ),
+                            ),
+                            SizedBox(
+                              width: 46,
+                              height: 46,
+                              child: FilledButton(
+                                onPressed: onFilter,
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: ImoviaColors.brandAccent,
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                ),
+                                child: const Icon(Icons.tune_rounded, size: 21),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 9),
-                Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: ImoviaColors.sun,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                ),
-                const SizedBox(height: 9),
-                const Text(
-                  'Maisons, appartements, terrains…\nen quelques clics.',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    height: 1.45,
-                  ),
-                ),
               ],
             ),
           ),
-          Positioned(
-            left: 18,
-            right: 18,
-            bottom: 18,
-            height: 58,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(32),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x35000000),
-                    blurRadius: 16,
-                    offset: Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  const SizedBox(width: 12),
-                  const Icon(
-                    Icons.search_rounded,
-                    color: ImoviaColors.ink,
-                    size: 24,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      controller: controller,
-                      textInputAction: TextInputAction.search,
-                      onSubmitted: (_) => onSubmit(),
-                      decoration: const InputDecoration(
-                        hintText: 'Rechercher un bien, une ville…',
-                        border: InputBorder.none,
-                        enabledBorder: InputBorder.none,
-                        focusedBorder: InputBorder.none,
-                        filled: false,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ),
-                  ),
-                  SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: FilledButton(
-                      onPressed: onFilter,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: ImoviaColors.brandAccent,
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        shape: const CircleBorder(),
-                      ),
-                      child: const Icon(Icons.tune_rounded, size: 22),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
 }
 
 class _CategoryTile extends StatelessWidget {
@@ -461,26 +542,35 @@ class _CategoryTile extends StatelessWidget {
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) => Material(
-    color: ImoviaColors.brandAccentSoft,
+    color: const Color(0xFFF0F8F1),
     borderRadius: BorderRadius.circular(18),
     child: InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(18),
       child: Container(
-        height: 92,
+        height: 84,
         decoration: BoxDecoration(
-          border: Border.all(color: ImoviaColors.white),
+          border: Border.all(color: const Color(0xFFDDEBE0)),
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 24, color: ImoviaColors.ink),
-            const SizedBox(height: 7),
+            Container(
+              width: 38,
+              height: 38,
+              decoration: const BoxDecoration(
+                color: ImoviaColors.brandAccentSoft,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, size: 24, color: ImoviaColors.brandAccent),
+            ),
+            const SizedBox(height: 5),
             Text(
               label,
               style: Theme.of(context).textTheme.labelLarge
-                  ?.copyWith(color: ImoviaColors.ink, fontSize: 12),
+                  ?.copyWith(color: ImoviaColors.ink, fontSize: 13),
             ),
           ],
         ),
@@ -559,23 +649,83 @@ class _EmptyListings extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(24),
+    padding: const EdgeInsets.fromLTRB(18, 18, 18, 20),
     decoration: BoxDecoration(
       color: ImoviaColors.white,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(22),
+      border: Border.all(color: ImoviaColors.border),
+      boxShadow: const [
+        BoxShadow(
+          color: Color(0x0C0B0B0B),
+          blurRadius: 12,
+          offset: Offset(0, 3),
+        ),
+      ],
     ),
     child: Column(
       children: [
-        const Icon(
-          Icons.search_off_rounded,
-          size: 36,
-          color: ImoviaColors.gray,
+        SizedBox(
+          width: 70,
+          height: 70,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 62,
+                height: 62,
+                decoration: const BoxDecoration(
+                  color: ImoviaColors.brandAccentSoft,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const Icon(
+                Icons.home_outlined,
+                size: 42,
+                color: ImoviaColors.brandAccent,
+              ),
+              Positioned(
+                right: 1,
+                bottom: 4,
+                child: Container(
+                  width: 31,
+                  height: 31,
+                  decoration: const BoxDecoration(
+                    color: ImoviaColors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.search_rounded,
+                    size: 25,
+                    color: ImoviaColors.ink,
+                  ),
+                ),
+              ),
+              const Positioned(
+                right: -4,
+                top: 1,
+                child: Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 14,
+                  color: ImoviaColors.brandAccent,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Text(
-          'Aucune annonce disponible pour le moment.',
+          'Aucune annonce pour le moment',
           textAlign: TextAlign.center,
-          style: Theme.of(context).textTheme.bodyLarge,
+          style: Theme.of(context).textTheme.titleMedium
+              ?.copyWith(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Les nouvelles annonces apparaîtront ici dès leur publication.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall
+              ?.copyWith(color: ImoviaColors.gray),
         ),
       ],
     ),

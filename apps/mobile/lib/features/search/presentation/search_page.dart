@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
@@ -6,6 +8,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../../app/providers.dart';
 import '../../../core/network/api_client.dart';
 import '../../../core/theme/imovia_colors.dart';
+import '../../../core/ui/account_bottom_nav.dart';
 import '../data/search_repository.dart';
 import '../domain/search_criteria.dart';
 
@@ -25,6 +28,9 @@ class _SearchPageState extends ConsumerState<SearchPage> {
   late String? _operationType = widget.initialCriteria.operationType;
   late String? _category = widget.initialCriteria.category;
   SearchLocation? _location;
+  Timer? _locationDebounce;
+  Future<List<SearchLocation>>? _locationSuggestionsFuture;
+  String? _locationSuggestionQuery;
   int? _resultCount;
   bool _isCounting = false;
   String? _formError;
@@ -47,18 +53,20 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     if (locationId != null && locationName != null) {
       _location = SearchLocation(id: locationId, name: locationName, level: '');
     }
+    _scheduleLocationSearch(widget.initialCriteria.query ?? '');
   }
 
   @override
   void dispose() {
     _queryController.dispose();
+    _locationDebounce?.cancel();
     _minPriceController.dispose();
     _maxPriceController.dispose();
     super.dispose();
   }
 
   SearchCriteria get _criteria => SearchCriteria(
-    query: _queryController.text.trim().isEmpty
+    query: _location != null || _queryController.text.trim().isEmpty
         ? null
         : _queryController.text.trim(),
     operationType: _operationType,
@@ -73,20 +81,109 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         : _maxPriceController.text.trim(),
   );
 
-  Future<void> _chooseLocation() async {
-    final location = await showModalBottomSheet<SearchLocation>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _LocationPickerSheet(),
-    );
-    if (location != null) {
+  void _scheduleLocationSearch(String value) {
+    _locationDebounce?.cancel();
+    final query = value.trim();
+    _locationSuggestionQuery = null;
+    _locationSuggestionsFuture = null;
+    if (query.isEmpty) return;
+    _locationDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted || _queryController.text.trim() != query) return;
       setState(() {
-        _location = location;
-        _resultCount = null;
-        _apiError = null;
+        _locationSuggestionQuery = query;
+        _locationSuggestionsFuture = ref
+            .read(searchRepositoryProvider)
+            .searchLocations(query);
       });
+    });
+  }
+
+  void _onSearchQueryChanged(String value) {
+    setState(() {
+      _location = null;
+      _resultCount = null;
+      _scheduleLocationSearch(value);
+    });
+  }
+
+  void _selectLocation(SearchLocation location) {
+    _locationDebounce?.cancel();
+    setState(() {
+      _location = location;
+      _queryController.text = location.name;
+      _locationSuggestionQuery = null;
+      _locationSuggestionsFuture = null;
+      _resultCount = null;
+      _apiError = null;
+    });
+    FocusScope.of(context).unfocus();
+  }
+
+  Widget _buildLocationSuggestions() {
+    final query = _queryController.text.trim();
+    if (_locationSuggestionQuery != query) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 8),
+        child: Row(
+          children: [
+            SizedBox.square(
+              dimension: 16,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            SizedBox(width: 10),
+            Expanded(child: Text('Recherche des villes et localités…')),
+          ],
+        ),
+      );
     }
+    return FutureBuilder<List<SearchLocation>>(
+      future: _locationSuggestionsFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: LinearProgressIndicator(),
+          );
+        }
+        if (snapshot.hasError) {
+          return const Text('Suggestions indisponibles. Réessaie.');
+        }
+        final locations = snapshot.data ?? const <SearchLocation>[];
+        if (locations.isEmpty) {
+          return const Text('Aucune ville ou localité trouvée.');
+        }
+        return ConstrainedBox(
+          constraints: const BoxConstraints(maxHeight: 280),
+          child: ListView.separated(
+            shrinkWrap: true,
+            itemCount: locations.length,
+            separatorBuilder: (_, _) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final location = locations[index];
+              return Material(
+                color: Colors.transparent,
+                child: ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.place_outlined),
+                  title: Text(location.name),
+                  subtitle: Text(
+                    location.path ?? _locationLevelLabel(location.level),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  trailing: Text(
+                    _locationLevelLabel(location.level),
+                    style: Theme.of(context).textTheme.labelSmall,
+                  ),
+                  onTap: () => _selectLocation(location),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _countResults() async {
@@ -133,10 +230,21 @@ class _SearchPageState extends ConsumerState<SearchPage> {
       _operationType = null;
       _category = null;
       _location = null;
+      _locationDebounce?.cancel();
+      _locationSuggestionQuery = null;
+      _locationSuggestionsFuture = null;
       _resultCount = null;
       _formError = null;
       _apiError = null;
     });
+  }
+
+  void _goBack() {
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go('/');
+    }
   }
 
   @override
@@ -144,7 +252,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     backgroundColor: ImoviaColors.page,
     appBar: AppBar(
       leading: IconButton(
-        onPressed: () => Navigator.of(context).maybePop(),
+        onPressed: _goBack,
         tooltip: 'Retour',
         icon: const Icon(Icons.arrow_back_rounded),
       ),
@@ -163,14 +271,35 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         _SectionCard(
           title: 'Votre recherche',
           icon: Icons.search_rounded,
-          child: TextField(
-            controller: _queryController,
-            textInputAction: TextInputAction.search,
-            onChanged: (_) => setState(() => _resultCount = null),
-            decoration: const InputDecoration(
-              hintText: 'Bien, ville ou quartier',
-              prefixIcon: Icon(Icons.search_rounded),
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextField(
+                controller: _queryController,
+                textInputAction: TextInputAction.search,
+                onChanged: _onSearchQueryChanged,
+                decoration: const InputDecoration(
+                  hintText: 'Bien, ville ou quartier',
+                  prefixIcon: Icon(Icons.search_rounded),
+                ),
+              ),
+              if (_location != null) ...[
+                const SizedBox(height: 10),
+                _SelectedLocation(
+                  location: _location!,
+                  onClear: () {
+                    _queryController.clear();
+                    setState(() {
+                      _location = null;
+                      _resultCount = null;
+                    });
+                  },
+                ),
+              ] else if (_queryController.text.trim().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _buildLocationSuggestions(),
+              ],
+            ],
           ),
         ),
         const SizedBox(height: 14),
@@ -234,29 +363,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
               _category = value;
               _resultCount = null;
             }),
-          ),
-        ),
-        const SizedBox(height: 14),
-        _SectionCard(
-          title: 'Localisation',
-          icon: Icons.location_on_outlined,
-          child: InkWell(
-            onTap: _chooseLocation,
-            borderRadius: BorderRadius.circular(16),
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.place_outlined),
-                suffixIcon: Icon(Icons.chevron_right_rounded),
-              ),
-              child: Text(
-                _location?.name ?? 'Choisir une commune ou un quartier',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: _location == null
-                      ? ImoviaColors.gray
-                      : ImoviaColors.ink,
-                ),
-              ),
-            ),
           ),
         ),
         const SizedBox(height: 14),
@@ -325,6 +431,7 @@ class _SearchPageState extends ConsumerState<SearchPage> {
         ),
       ],
     ),
+    bottomNavigationBar: const AccountBottomNav(selected: 'Recherche'),
   );
 
   void _setOperation(String? value) => setState(() {
@@ -332,140 +439,6 @@ class _SearchPageState extends ConsumerState<SearchPage> {
     _resultCount = null;
   });
 }
-
-class _LocationPickerSheet extends ConsumerStatefulWidget {
-  const _LocationPickerSheet();
-
-  @override
-  ConsumerState<_LocationPickerSheet> createState() =>
-      _LocationPickerSheetState();
-}
-
-class _LocationPickerSheetState extends ConsumerState<_LocationPickerSheet> {
-  final List<SearchLocation?> _parentStack = [null];
-  late Future<List<SearchLocation>> _locationsFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _locationsFuture = ref.read(searchRepositoryProvider).loadLocations();
-  }
-
-  void _openChildren(SearchLocation location) {
-    setState(() {
-      _parentStack.add(location);
-      _locationsFuture = ref
-          .read(searchRepositoryProvider)
-          .loadLocations(parentId: location.id);
-    });
-  }
-
-  void _goBack() {
-    if (_parentStack.length <= 1) {
-      Navigator.of(context).maybePop();
-      return;
-    }
-    setState(() {
-      _parentStack.removeLast();
-      _locationsFuture = ref
-          .read(searchRepositoryProvider)
-          .loadLocations(parentId: _parentStack.last?.id);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final current = _parentStack.last;
-    return FractionallySizedBox(
-      heightFactor: .82,
-      child: DecoratedBox(
-        decoration: const BoxDecoration(
-          color: ImoviaColors.page,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-        ),
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 18, 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: _goBack,
-                    icon: Icon(
-                      _parentStack.length > 1
-                          ? Icons.arrow_back_rounded
-                          : Icons.close_rounded,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      current?.name ?? 'Choisir une localisation',
-                      style: Theme.of(context).textTheme.titleLarge,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Expanded(
-              child: FutureBuilder<List<SearchLocation>>(
-                future: _locationsFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return const Center(
-                      child: Text('Impossible de charger les localisations.'),
-                    );
-                  }
-                  final locations = snapshot.data ?? const <SearchLocation>[];
-                  if (locations.isEmpty) {
-                    return const Center(
-                      child: Text('Aucune localisation disponible.'),
-                    );
-                  }
-                  return ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(18, 6, 18, 24),
-                    itemCount: locations.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 6),
-                    itemBuilder: (context, index) {
-                      final location = locations[index];
-                      return Material(
-                        color: ImoviaColors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        child: ListTile(
-                          title: Text(location.name),
-                          subtitle: Text(_locationLevelLabel(location.level)),
-                          trailing: IconButton(
-                            tooltip: 'Explorer ${location.name}',
-                            onPressed: () => _openChildren(location),
-                            icon: const Icon(Icons.chevron_right_rounded),
-                          ),
-                          onTap: () => Navigator.of(context).pop(location),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-String _locationLevelLabel(String level) => switch (level) {
-  'DEPARTMENT' => 'Département',
-  'COMMUNE' => 'Commune',
-  'ARRONDISSEMENT' => 'Arrondissement',
-  'NEIGHBORHOOD' => 'Quartier',
-  _ => 'Localisation',
-};
 
 class _SectionCard extends StatelessWidget {
   const _SectionCard({
@@ -552,3 +525,56 @@ class _InlineMessage extends StatelessWidget {
     ),
   );
 }
+
+class _SelectedLocation extends StatelessWidget {
+  const _SelectedLocation({required this.location, required this.onClear});
+
+  final SearchLocation location;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+    decoration: BoxDecoration(
+      color: ImoviaColors.brandAccentSoft,
+      borderRadius: BorderRadius.circular(14),
+    ),
+    child: Row(
+      children: [
+        const Icon(Icons.place_rounded, color: ImoviaColors.brandAccent),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                location.name,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              if (location.path != null)
+                Text(
+                  location.path!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+            ],
+          ),
+        ),
+        IconButton(
+          onPressed: onClear,
+          tooltip: 'Retirer la localisation',
+          icon: const Icon(Icons.close_rounded),
+        ),
+      ],
+    ),
+  );
+}
+
+String _locationLevelLabel(String level) => switch (level) {
+  'DEPARTMENT' => 'Département',
+  'COMMUNE' => 'Commune',
+  'ARRONDISSEMENT' => 'Arrondissement',
+  'NEIGHBORHOOD' => 'Quartier',
+  _ => 'Localisation',
+};

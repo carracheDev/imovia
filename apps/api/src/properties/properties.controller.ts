@@ -168,6 +168,11 @@ export class PropertiesController {
 export class LocationsController {
   constructor(private readonly properties: PropertiesService) {}
 
+  @Get('search')
+  search(@Query('q') query?: string) {
+    return this.properties.searchLocations(query ?? '');
+  }
+
   @Get()
   list(@Query('parentId') parentId?: string) {
     return this.properties.listLocations(parentId);
